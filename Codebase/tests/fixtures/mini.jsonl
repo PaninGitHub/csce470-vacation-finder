@@ -1,0 +1,14 @@
+{"user_id": "u001", "name": "Test User 1", "time": 1560000000000, "rating": 5, "text": "Huge pool and the kids loved the water slide. Great family resort right on the beach.", "pics": null, "resp": null, "gmap_id": "pool_resort"}
+{"user_id": "u002", "name": "Test User 2", "time": 1561000000000, "rating": 4, "text": "Rooms were clean and the pool area was beautiful. A bit pricey but worth it for the view.", "pics": null, "resp": null, "gmap_id": "pool_resort"}
+{"user_id": "u003", "name": "Test User 3", "time": 1562000000000, "rating": 5, "text": null, "pics": null, "resp": null, "gmap_id": "pool_resort"}
+{"user_id": "u004", "name": "Test User 4", "time": 1563000000000, "rating": 3, "text": "Nice pool", "pics": null, "resp": null, "gmap_id": "pool_resort"}
+{"user_id": "u005", "name": "Test User 5", "time": 1564000000000, "rating": 5, "text": "Very peaceful and secluded beach. We only heard the waves and the birds all afternoon.", "pics": null, "resp": null, "gmap_id": "quiet_beach"}
+{"user_id": "u006", "name": "Test User 6", "time": 1565000000000, "rating": 5, "text": "A calm and tranquil spot by the ocean, perfect for a quiet morning walk on the sand.", "pics": null, "resp": null, "gmap_id": "quiet_beach"}
+{"user_id": "u007", "name": "Test User 7", "time": 1566000000000, "rating": 4, "text": "Hardly anyone here. Relaxing place to read a book and watch the sunset over the water.", "pics": null, "resp": null, "gmap_id": "quiet_beach"}
+{"user_id": "u008", "name": "Test User 8", "time": 1567000000000, "rating": 4, "text": "Loud music and a packed dance floor every weekend. The DJ was great and drinks were cheap.", "pics": null, "resp": null, "gmap_id": "night_bar"}
+{"user_id": "u009", "name": "Test User 9", "time": 1568000000000, "rating": 2, "text": "Way too crowded and noisy for me, but the nightlife here is clearly popular with students.", "pics": null, "resp": null, "gmap_id": "night_bar"}
+{"user_id": "u010", "name": "Test User 10", "time": 1569000000000, "rating": 5, "text": "Took the five hour glacier cruise and saw whales, seals and huge chunks of ice falling off.", "pics": null, "resp": null, "gmap_id": "glacier_tour"}
+{"user_id": "u011", "name": "Test User 11", "time": 1570000000000, "rating": 5, "text": "Our captain was friendly and the glacier views were amazing. Bring a warm jacket for the boat.", "pics": null, "resp": null, "gmap_id": "glacier_tour"}
+{"user_id": "u012", "name": "Test User 12", "time": 1571000000000, "rating": 1, "text": "ok", "pics": null, "resp": null, "gmap_id": "no_text_place"}
+{"user_id": "u013", "name": "Test User 13", "time": 1572000000000, "rating": 4, "text": null, "pics": null, "resp": null, "gmap_id": "no_text_place"}
+{"user_id": "u014", "name": "Test User 14", "time": 1573000000000, "rating": 5, "text": "(Translated by Google) Lovely little cafe with fresh coffee and friendly staff here.\n\n(Original)\nとても素敵なカフェで、コーヒーも新鮮でスタッフも親切です。", "pics": null, "resp": null, "gmap_id": "cafe"}
