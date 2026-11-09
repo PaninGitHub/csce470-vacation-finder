@@ -43,7 +43,7 @@ def main():
 		return
 	path = os.path.join(ROOT, path)
 
-	print("Loading reviews...")W
+	print("Loading reviews...")
 	places = load_places(path)
 	docs = build_docs(places)
 
