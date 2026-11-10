@@ -1,7 +1,6 @@
 import os
 import sys
 from dotenv import load_dotenv
-from vacfinder.hybrid import hybrid_search
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, os.path.join(ROOT, "src"))
@@ -11,6 +10,7 @@ from vacfinder.data import load_places
 from vacfinder.textproc import clean, tokenize
 from vacfinder.bm25 import BM25
 from vacfinder.dense import DenseIndex
+from vacfinder.hybrid import hybrid_search
 
 def build_docs(places):
 	docs = {}
@@ -61,7 +61,7 @@ def main():
 	query_tokens = tokenize(query)
 	print_results("BM25", index.search(query_tokens, k=5), places, query, query_tokens)
 	print_results("Dense", dense.search(query, k=5), places, query, query_tokens)
-		print_results("Hybrid", hybrid_search(index, dense, query, k=5), places, query, query_tokens)
+	print_results("Hybrid", hybrid_search(index, dense, query, k=5), places, query, query_tokens)
 
 def print_results(label, results, places, query, query_tokens):
 	print("\n=== " + label + " ===")
