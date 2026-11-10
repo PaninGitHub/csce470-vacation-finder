@@ -1,2 +1,4 @@
 pytest
 python-dotenv
+numpy
+sentence-transformers
