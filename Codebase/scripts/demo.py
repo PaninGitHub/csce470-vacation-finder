@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 from vacfinder.data import load_places
 from vacfinder.textproc import clean, tokenize
 from vacfinder.bm25 import BM25
+from vacfinder.dense import DenseIndex
 
 def build_docs(places):
 	docs = {}
@@ -50,14 +51,24 @@ def main():
 	print("Building indices for the following docs. Amt: ", len(docs))
 	index = BM25(docs)
 
-	query_tokens = tokenize(query)
-	results = index.search(query_tokens, k=5)
+	# Cache file is named after the data file, so different datasets don't share one
+	data_name = os.path.splitext(os.path.basename(path))[0]
+	cache_path = os.path.join(ROOT, "cache", data_name + "_dense.npz")
+	print("Building dense index (first run on a dataset is slow, later runs use the cache)...")
+	dense = DenseIndex(places, cache_path=cache_path)
 
+	query_tokens = tokenize(query)
+	print_results("BM25", index.search(query_tokens, k=5), places, query, query_tokens)
+	print_results("Dense", dense.search(query, k=5), places, query, query_tokens)
+
+
+def print_results(label, results, places, query, query_tokens):
+	print("\n=== " + label + " ===")
 	if len(results) == 0:
 		print("No results for:", query)
 		return
 
-	print("\nTop results for:", query)
+	print("Top results for:", query)
 	for rank, (gmap_id, score) in enumerate(results, 1):
 		info = places[gmap_id]
 		avg_rating = sum(info["ratings"]) / len(info["ratings"])

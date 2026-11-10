@@ -1,12 +1,16 @@
 """Dense (embedding) index over place reviews."""
+import hashlib
+import os
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from vacfinder.textproc import clean
 
 class DenseIndex:
-	def __init__(self, places, chunk_words=150, model_name="all-MiniLM-L6-v2"):
+	def __init__(self, places, chunk_words=150, model_name="all-MiniLM-L6-v2", cache_path=None):
 		# places: {gmap_id: {"texts": [...], "ratings": [...]}} from load_places
+		# cache_path: optional .npz file to save/load the encoded chunks
 		self.model = SentenceTransformer(model_name)
 
 		# Split every place's reviews into chunks, remembering the owner of each chunk
@@ -17,8 +21,28 @@ class DenseIndex:
 				self.chunks.append(chunk)
 				self.chunk_place.append(gmap_id)
 
+		# Fingerprint of everything that affects the vectors. If the data, chunk size,
+		# or model changes, the fingerprint changes and the cache gets rebuilt
+		hasher = hashlib.sha256(f"{model_name}|{chunk_words}".encode("utf-8"))
+		for gmap_id, chunk in zip(self.chunk_place, self.chunks):
+			hasher.update(f"\n{gmap_id}\t{chunk}".encode("utf-8"))
+		fingerprint = hasher.hexdigest()
+
+		# Use the cached vectors if they were built from exactly these chunks
+		if cache_path is not None and os.path.exists(cache_path):
+			cached = np.load(cache_path)
+			if str(cached["fingerprint"]) == fingerprint:
+				self.matrix = cached["matrix"]
+				return
+			print("Embedding cache is out of date, rebuilding...")
+
 		# One row per chunk, 384 numbers each. Normalized, so dot product = cosine similarity
-		self.matrix = self.model.encode(self.chunks, normalize_embeddings=True)
+		# This is the slow part: the model runs over every chunk
+		self.matrix = self.model.encode(self.chunks, normalize_embeddings=True, show_progress_bar=True)
+
+		if cache_path is not None:
+			os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
+			np.savez(cache_path, matrix=self.matrix, fingerprint=np.array(fingerprint))
 
 	def make_chunks(self, texts, chunk_words):
 		# Pack whole reviews into chunks of at most chunk_words words.
