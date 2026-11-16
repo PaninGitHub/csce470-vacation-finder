@@ -19,7 +19,7 @@ The default `.env` uses the small sample in `sample_data/`, so no download is ne
 ## Run
 
 ```bash
-python scripts/demo.py "glacier cruise"
+python src/vacfinder/demo.py "glacier cruise"
 ```
 
 Results show place IDs, since names come from metadata we haven't added yet.
