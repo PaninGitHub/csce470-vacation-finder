@@ -2,7 +2,7 @@
 
 Search engine for vacation spots. Type a query like "glacier cruise" and get places ranked by how well their reviews match. CSCE 470 project by Dinidu Samaranayake and Oliver Hankins.
 
-Currently implemented: loading reviews, text cleaning, BM25 ranking, dense (embedding) ranking with caching, hybrid ranking (BM25 and dense combined with reciprocal rank fusion), and a command-line demo that prints all three rankings. Place names and the UI are not done yet.
+Currently implemented: loading reviews, text cleaning, BM25 ranking, dense (embedding) ranking with caching, hybrid ranking (BM25 and dense combined with reciprocal rank fusion), and a command-line demo that prints all three rankings. Also implemented: finding a place name in the query (gazetteer), a radius filter, and a Streamlit search UI with a map.
 
 ## Setup
 
@@ -20,16 +20,30 @@ The default `.env` uses the small sample in `sample_data/`, so no data download 
 ## Run
 
 ```bash
-python scripts/demo.py "glacier cruise"
+python src/vacfinder/demo.py "glacier cruise"
 ```
 
 Prints the top 5 places from BM25, from the dense embeddings, and from the hybrid of the two. Results show place IDs, since names come from metadata we haven't added yet. The first run on a dataset embeds all reviews and is slower; later runs reuse the saved vectors in `cache/`.
+
+## Web app
+
+The app searches the trimmed place files (one `.jsonl.gz` per state). Set `PLACES_DIR` in `.env` to the `final/` folder (see `.env.example`); only states whose `processed/<State>.status` starts with `DONE` show up, so new states and countries appear without code changes.
+
+```bash
+pip install -r requirements.txt
+python scripts/build_cache.py Hawaii Nevada      # optional: precompute embeddings (cached in cache/)
+streamlit run app.py
+```
+
+Then open http://localhost:8501. Type something like "beach resort in Waikiki" or "snorkeling Maui". The place name sets the center of the search, the radius slider limits the candidates, and the rest of the query is ranked with BM25, Dense or Hybrid. If no place name is found, pick a state in the sidebar. The first search in a state is slow if its embeddings are not cached yet.
 
 ## Test
 
 ```bash
 pytest -v
 ```
+
+The default run skips the slow dense test, which loads the real embedding model (needs the model downloaded, a few seconds on CPU). To include it, run `pytest -m slow` (only the slow test) or `pytest -m ""` (everything).
 
 ## Data
 

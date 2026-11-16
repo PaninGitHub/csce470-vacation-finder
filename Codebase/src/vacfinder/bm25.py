@@ -1,4 +1,3 @@
-"""BM25 index over place documents."""
 import math
 import heapq
 

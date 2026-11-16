@@ -2,7 +2,7 @@ import os
 import sys
 from dotenv import load_dotenv
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
 # Import these after, as we need to run the above code first
@@ -34,7 +34,7 @@ def take_first_snippet(texts, query_tokens):
 def main():
 	# Corrects if not enough args
 	if len(sys.argv) < 2:
-		print('Incorrec arguments. Do this: python scripts/demo.py {query}')
+		print('Incorrec arguments. Do this: python src/vacfinder/demo.py {query}')
 		return
 	query = sys.argv[1]
 

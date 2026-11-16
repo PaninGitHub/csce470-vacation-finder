@@ -3,15 +3,19 @@ import hashlib
 import os
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from vacfinder.textproc import clean
 
 class DenseIndex:
-	def __init__(self, places, chunk_words=150, model_name="all-MiniLM-L6-v2", cache_path=None):
+	def __init__(self, places, chunk_words=150, model_name="all-MiniLM-L6-v2", cache_path=None, model=None):
 		# places: {gmap_id: {"texts": [...], "ratings": [...]}} from load_places
 		# cache_path: optional .npz file to save/load the encoded chunks
-		self.model = SentenceTransformer(model_name)
+		# model: an already loaded SentenceTransformer, so several indexes can share one
+		if model is None:
+			# Imported here so the chunking code can be used without loading torch
+			from sentence_transformers import SentenceTransformer
+			model = SentenceTransformer(model_name)
+		self.model = model
 
 		# Split every place's reviews into chunks, remembering the owner of each chunk
 		self.chunks = []
@@ -20,6 +24,13 @@ class DenseIndex:
 			for chunk in self.make_chunks(info["texts"], chunk_words):
 				self.chunks.append(chunk)
 				self.chunk_place.append(gmap_id)
+
+		# Which rows of the chunk matrix belong to each place
+		self.place_rows = {}
+		for i, gmap_id in enumerate(self.chunk_place):
+			if gmap_id not in self.place_rows:
+				self.place_rows[gmap_id] = []
+			self.place_rows[gmap_id].append(i)
 
 		# Fingerprint of everything that affects the vectors. If the data, chunk size,
 		# or model changes, the fingerprint changes and the cache gets rebuilt
@@ -44,7 +55,8 @@ class DenseIndex:
 			os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
 			np.savez(cache_path, matrix=self.matrix, fingerprint=np.array(fingerprint))
 
-	def make_chunks(self, texts, chunk_words):
+	@staticmethod
+	def make_chunks(texts, chunk_words):
 		# Pack whole reviews into chunks of at most chunk_words words.
 		# The model only reads ~256 tokens (~180-200 words), so a chunk must never
 		# go over chunk_words or the end of it is silently ignored.
@@ -73,20 +85,26 @@ class DenseIndex:
 			chunks.append(" ".join(cur_words))
 		return chunks
 
-	def search(self, query, k=10):
+	def search(self, query, k=10, candidates=None):
 		# Returns [(gmap_id, score), ...] sorted best-first
+		# candidates: optional list of gmap_ids, only these places get scored
 		q = self.model.encode([query], normalize_embeddings=True)[0]
 
-		# Similarity of the query to every chunk in one go
-		sims = self.matrix @ q
+		if candidates is None:
+			candidates = list(self.place_rows.keys())
 
-		# Group the chunk similarities by place
+		# Similarity of the query to the chunks of each candidate place
 		place_sims = {}
-		for i, sim in enumerate(sims):
-			gmap_id = self.chunk_place[i]
-			if gmap_id not in place_sims:
-				place_sims[gmap_id] = []
-			place_sims[gmap_id].append(float(sim))
+		self.best_chunk = {}
+		for gmap_id in candidates:
+			if gmap_id not in self.place_rows:
+				continue
+			rows = self.place_rows[gmap_id]
+			sims = self.matrix[rows] @ q
+			place_sims[gmap_id] = [float(s) for s in sims]
+
+			# Remember the closest chunk so the UI can show it as a snippet
+			self.best_chunk[gmap_id] = self.chunks[rows[int(np.argmax(sims))]]
 
 		# Place score: best chunk, mixed with the average of its top 3 chunks
 		scores = {}

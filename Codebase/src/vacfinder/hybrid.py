@@ -9,7 +9,7 @@ def fuse(result_lists, k=60):
 
 	return sorted(fused.items(), key=lambda x: x[1], reverse=True)
 
-def hybrid_search(bm25_index, dense_index, query, k=10, pool=100):
+def hybrid_search(bm25_index, dense_index, query, k=10, pool=100, candidates=None):
 	bm25_results = bm25_index.search(tokenize(query), k=pool)
-	dense_results = dense_index.search(query, k=pool)
+	dense_results = dense_index.search(query, k=pool, candidates=candidates)
 	return fuse([bm25_results, dense_results])[:k]
