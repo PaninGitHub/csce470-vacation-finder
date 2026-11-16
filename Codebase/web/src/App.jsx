@@ -1,121 +1,66 @@
 import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import TravelToggle from './components/TravelToggle.jsx'
+import SearchBar from './components/SearchBar.jsx'
+import RadiusSlider from './components/RadiusSlider.jsx'
+import MapView from './components/MapView.jsx'
+import CategoryBar from './components/CategoryBar.jsx'
+import ResultList from './components/ResultList.jsx'
+import { searchPlaces } from './api.js'
+
+const PER_GROUP = 10
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [query, setQuery] = useState('')
+  const [travel, setTravel] = useState('anywhere')
+  const [radius, setRadius] = useState(25) // km
+  const [group, setGroup] = useState('')
+
+
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function runSearch(extra = {}) {
+    setLoading(true)
+    setError('')
+    try {
+      const params = { q: query, travel, radius_km: radius, per_group: PER_GROUP, ...extra }
+      setData(await searchPlaces(params))
+    } catch {
+      setError('Could not reach the server. Is the backend running?')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function switchTravel(value) {
+    setTravel(value)
+    runSearch({ travel: value })
+  }
+
+  const results = data ? data.results : []
+  // The tabs only filter what is already loaded
+  const shown = group ? results.filter((place) => place.group === group) : results
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    <div className="min-h-screen bg-gray-100 text-gray-900">
+      <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-8">
+        <h1 className="text-2xl font-semibold">Vacation Finder</h1>
+        <TravelToggle travel={travel} setTravel={setTravel} />
+        <SearchBar query={query} setQuery={setQuery} onSearch={() => runSearch()} loading={loading} />
+        <RadiusSlider radius={radius} setRadius={setRadius} />
+        <MapView results={shown} />
+        <CategoryBar group={group} setGroup={setGroup} results={results} />
+        <ResultList
+          results={shown}
+          loading={loading}
+          error={error}
+          data={data}
+          onSwitchTravel={switchTravel}
+          onNearMe={runSearch}
+        />
+      </div>
+    </div>
   )
 }
 
