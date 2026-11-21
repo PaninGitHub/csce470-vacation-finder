@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 from functools import lru_cache
 from typing import Literal
 
@@ -51,6 +52,23 @@ class EmbeddingModel:
 			self.model = SentenceTransformer("all-MiniLM-L6-v2")
 		return self.model.encode(*args, **kwargs)
 
+# One shared model, so the warm-up and the searches use the same one
+EMBEDDER = EmbeddingModel()
+
+# Loads the embedding model in the background at startup s.t. the first dense/hybrid search isn't slow
+# Set WARMUP=0 to skip. Any failure (torch not installed, etc.) is ignored
+def warm_model():
+	try:
+		EMBEDDER.encode(["warm up"])
+	except Exception:
+		pass
+
+@app.on_event("startup")
+def start_warmup():
+	if os.getenv("WARMUP", "1") == "0":
+		return
+	threading.Thread(target=warm_model, daemon=True).start()
+
 class Context:
 	def __init__(self, places_dir, cache_dir, model):
 		self.places_dir = places_dir
@@ -63,7 +81,7 @@ class Context:
 def get_context():
 	places_dir = os.path.join(ROOT, os.getenv("PLACES_DIR", "../Docs/AI Stuff/Data Trim Plan/final"))
 	cache_dir = os.path.join(ROOT, os.getenv("CACHE_DIR", "cache"))
-	return Context(places_dir, cache_dir, EmbeddingModel())
+	return Context(places_dir, cache_dir, EMBEDDER)
 
 
 def empty_reply(note, location=None, suggest=None):
