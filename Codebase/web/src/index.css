@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* Tailwind's preflight shrinks images, which breaks Leaflet tiles and markers */
+.leaflet-container img {
+  max-width: none;
+}
