@@ -1,5 +1,5 @@
 // Address of the backend (uvicorn --app-dir src api.main:app --port 8000, run from Codebase/)
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '')
 
 // Set VITE_RANKER=BM25 to skip loading the embedding model while developing
 const RANKER = import.meta.env.VITE_RANKER

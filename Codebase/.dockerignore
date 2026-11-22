@@ -1,0 +1,6 @@
+*
+!requirements-api.txt
+!healthcheck.py
+!src
+**/__pycache__
+**/*.pyc

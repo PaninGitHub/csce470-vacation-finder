@@ -1,0 +1,20 @@
+services:
+  api:
+    build: .
+    image: vacfinder-api:latest
+    cpus: 1
+    mem_limit: 4g
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      WARMUP: "1"
+      REGION_CACHE: "4"
+      # CORS_ORIGINS: "https://<your-app>.vercel.app"  (or put it in .env)
+    volumes:
+      - /srv/vacfinder/data/final:/data/final:ro
+      - /srv/vacfinder/data/processed:/data/processed:ro
+      - /srv/vacfinder/data/cache:/data/cache:ro

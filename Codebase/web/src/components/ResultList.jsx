@@ -57,6 +57,7 @@ function ResultList({ results, loading, error, data, onSwitchTravel, onNearMe })
 
   return (
     <div className="flex flex-col gap-3">
+      {data.note && <p className="text-sm text-gray-600">{data.note}</p>}
       {results.map((place) => (
         <ResultCard key={place.id} place={place} />
       ))}
