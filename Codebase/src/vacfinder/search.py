@@ -1,4 +1,5 @@
 import os
+import sys
 
 from vacfinder.textproc import clean, tokenize
 from vacfinder.bm25 import BM25
@@ -14,6 +15,9 @@ class Searcher:
 		self.cache_dir = cache_dir
 		self.model = model
 
+		# Only this many regions stay in memory, the least recently used one is dropped
+		self.max_regions = int(os.environ.get("REGION_CACHE", "4"))
+
 		# Filled in by get_places, one region at a time
 		self.regions = {}
 		self.place_map = {}
@@ -28,13 +32,26 @@ class Searcher:
 			for p in self.regions[region]:
 				self.place_map[p["id"]] = p
 				self.place_region[p["id"]] = region
+		else:
+			# Move to the back of the dict, which keeps it ordered by last use
+			self.regions[region] = self.regions.pop(region)
+
+		# Drop the least recently used regions, with everything built from them
+		while len(self.regions) > self.max_regions:
+			old = next(iter(self.regions))
+			for p in self.regions.pop(old):
+				self.place_map.pop(p["id"], None)
+				self.place_region.pop(p["id"], None)
+				self.tokens.pop(p["id"], None)
+			self.dense_indexes.pop(old, None)
 		return self.regions[region]
 
 	def get_tokens(self, place):
 		# Name, categories and reviews all count, tokenized once per place
 		if place["id"] not in self.tokens:
 			text = place["name"] + " " + " ".join(place["categories"]) + " " + " ".join(place["texts"])
-			self.tokens[place["id"]] = tokenize(clean(text))
+			# Interned, so every place shares one copy of each word
+			self.tokens[place["id"]] = [sys.intern(w) for w in tokenize(clean(text))]
 		return self.tokens[place["id"]]
 
 	def get_dense(self, region):
@@ -68,7 +85,8 @@ class Searcher:
 			dense_list = self.dense_results(query, candidates, 100)
 			results = fuse([bm25_list, dense_list])[:k]
 
-		return [(self.place_map[gmap_id], score) for gmap_id, score in results]
+		by_id = {p["id"]: p for p in candidates}
+		return [(by_id[gmap_id], score) for gmap_id, score in results]
 
 	def bm25_results(self, query_tokens, candidates, k):
 		# IDF is computed over the candidates only
@@ -104,9 +122,9 @@ class Searcher:
 				best_text = text
 
 		if best_text is None:
-			dense = self.dense_indexes.get(self.place_region[place["id"]])
-			if dense is not None and place["id"] in getattr(dense, "best_chunk", {}):
-				best_text = dense.best_chunk[place["id"]]
+			dense = self.dense_indexes.get(self.place_region.get(place["id"]))
+			if dense is not None and dense.best_chunk_text(place["id"]) is not None:
+				best_text = dense.best_chunk_text(place["id"])
 			elif len(place["texts"]) > 0:
 				best_text = place["texts"][0]
 			else:

@@ -16,13 +16,18 @@ class DenseIndex:
 			from sentence_transformers import SentenceTransformer
 			model = SentenceTransformer(model_name)
 		self.model = model
+		self.best_chunk = {}
 
 		# Split every place's reviews into chunks, remembering the owner of each chunk
-		self.chunks = []
+		# Chunk strings are not kept afterwards (saves memory)
+		self.chunk_words = chunk_words
+		self.texts = {}
+		chunks = []
 		self.chunk_place = []
 		for gmap_id, info in places.items():
+			self.texts[gmap_id] = info["texts"]
 			for chunk in self.make_chunks(info["texts"], chunk_words):
-				self.chunks.append(chunk)
+				chunks.append(chunk)
 				self.chunk_place.append(gmap_id)
 
 		# Which rows of the chunk matrix belong to each place
@@ -35,7 +40,7 @@ class DenseIndex:
 		# Fingerprint of everything that affects the vectors. If the data, chunk size,
 		# or model changes, the fingerprint changes and the cache gets rebuilt
 		hasher = hashlib.sha256(f"{model_name}|{chunk_words}".encode("utf-8"))
-		for gmap_id, chunk in zip(self.chunk_place, self.chunks):
+		for gmap_id, chunk in zip(self.chunk_place, chunks):
 			hasher.update(f"\n{gmap_id}\t{chunk}".encode("utf-8"))
 		fingerprint = hasher.hexdigest()
 
@@ -43,23 +48,29 @@ class DenseIndex:
 		if cache_path is not None and os.path.exists(cache_path):
 			cached = np.load(cache_path)
 			if str(cached["fingerprint"]) == fingerprint:
-				self.matrix = cached["matrix"]
+				# We store in float16 to save memory
+				self.matrix = cached["matrix"].astype(np.float16)
 				return
 			print("Embedding cache is out of date, rebuilding...")
 
 		# One row per chunk, 384 numbers each. Normalized, so dot product = cosine similarity
 		# This is the slow part: the model runs over every chunk
-		self.matrix = self.model.encode(self.chunks, normalize_embeddings=True, show_progress_bar=True)
+		matrix = self.model.encode(chunks, normalize_embeddings=True, show_progress_bar=True)
 
 		if cache_path is not None:
 			os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
-			np.savez(cache_path, matrix=self.matrix, fingerprint=np.array(fingerprint))
+			np.savez(cache_path, matrix=matrix, fingerprint=np.array(fingerprint))
+		self.matrix = np.asarray(matrix).astype(np.float16)
+
+	# Returns text of chunk that was closest to the last query (or None if not scored)
+	def best_chunk_text(self, gmap_id):
+		if gmap_id not in self.best_chunk:
+			return None
+		return self.make_chunks(self.texts[gmap_id], self.chunk_words)[self.best_chunk[gmap_id]]
 
 	@staticmethod
 	def make_chunks(texts, chunk_words):
 		# Pack whole reviews into chunks of at most chunk_words words.
-		# The model only reads ~256 tokens (~180-200 words), so a chunk must never
-		# go over chunk_words or the end of it is silently ignored.
 		chunks = []
 		cur_words = []
 		for text in texts:
@@ -100,11 +111,11 @@ class DenseIndex:
 			if gmap_id not in self.place_rows:
 				continue
 			rows = self.place_rows[gmap_id]
-			sims = self.matrix[rows] @ q
+			sims = self.matrix[rows].astype(np.float32) @ q
 			place_sims[gmap_id] = [float(s) for s in sims]
 
-			# Remember the closest chunk so the UI can show it as a snippet
-			self.best_chunk[gmap_id] = self.chunks[rows[int(np.argmax(sims))]]
+			# Remember which chunk of the place was closest so the UI can show it as a snippet
+			self.best_chunk[gmap_id] = int(np.argmax(sims))
 
 		# Place score: best chunk, mixed with the average of its top 3 chunks
 		scores = {}
