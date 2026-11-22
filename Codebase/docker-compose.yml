@@ -15,6 +15,6 @@ services:
       REGION_CACHE: "4"
       # CORS_ORIGINS: "https://<your-app>.vercel.app"  (or put it in .env)
     volumes:
-      - /srv/vacfinder/data/final:/data/final:ro
-      - /srv/vacfinder/data/processed:/data/processed:ro
-      - /srv/vacfinder/data/cache:/data/cache:ro
+      - ./data/final:/data/final:ro
+      - ./data/processed:/data/processed:ro
+      - ./data/cache:/data/cache:ro
