@@ -2,7 +2,7 @@
 
 Search engine for vacation spots. Type a query like "glacier cruise" and get places ranked by how well their reviews match. CSCE 470 project by Dinidu Samaranayake and Oliver Hankins.
 
-Currently implemented: loading reviews, text cleaning, BM25 ranking, dense (embedding) ranking with caching, hybrid ranking (BM25 and dense combined with reciprocal rank fusion), and a command-line demo that prints all three rankings. Also implemented: finding a place name in the query (gazetteer), a radius filter, and a Streamlit search UI with a map.
+Currently implemented: loading reviews, text cleaning, BM25 ranking, dense (embedding) ranking with caching, hybrid ranking (BM25 and dense combined with reciprocal rank fusion), and a command-line demo that prints all three rankings. Also implemented: finding a place name in the query (gazetteer), a radius filter, a FastAPI backend, and a React search UI with a map (a Streamlit version is still in `app.py`).
 
 ## Setup
 
@@ -36,6 +36,22 @@ streamlit run app.py
 ```
 
 Then open http://localhost:8501. Type something like "beach resort in Waikiki" or "snorkeling Maui". The place name sets the center of the search, the radius slider limits the candidates, and the rest of the query is ranked with BM25, Dense or Hybrid. If no place name is found, pick a state in the sidebar. The first search in a state is slow if its embeddings are not cached yet.
+
+### React app and API
+
+Run the backend from `Codebase/` and the frontend from `Codebase/web/`, in two terminals:
+
+```bash
+uvicorn --app-dir src api.main:app --port 8000
+```
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Then open http://localhost:5173. The backend loads the embedding model in the background when it starts (set `WARMUP=0` to skip that). Run `python scripts/build_cache.py` once first so every region's embeddings are cached, otherwise the first Dense or Hybrid search in a new region takes minutes. `python scripts/bench_search.py Hawaii` prints where search time goes.
 
 ## Test
 

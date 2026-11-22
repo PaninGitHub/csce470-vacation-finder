@@ -21,10 +21,10 @@ def main():
 	from sentence_transformers import SentenceTransformer
 	model = SentenceTransformer("all-MiniLM-L6-v2")
 
-	searcher = Searcher(places_dir, os.path.join(ROOT, "cache"), model)
-
 	for name in names:
 		print("Building dense index for", name)
+		# Generates new searcher each time s.t. finished regions are freed reducing memory usage
+		searcher = Searcher(places_dir, os.path.join(ROOT, "cache"), model)
 		searcher.get_dense(name)
 
 if __name__ == "__main__":
