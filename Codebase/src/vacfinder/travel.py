@@ -8,10 +8,10 @@ def is_right_mode(country, mode):
 def entries_for_mode(entries, mode):
 	return [e for e in entries if is_right_mode(e["country"], mode)]
 
-def is_misfit(location, other, mode):
+def is_misfit(location, other, mode, explains_more=False):
 	if other is None or is_right_mode(other["country"], mode):
 		return False
-	return location is None or len(other["key"]) > len(location["key"])
+	return location is None or len(other["key"]) > len(location["key"]) or explains_more
 
 def other_mode(country):
 	return "Domestic (US)" if country == "US" else "International"

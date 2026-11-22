@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 from vacfinder.geo import load_gazetteer, find_loc, find_distance_sphere, radius_search
 from vacfinder.places import list_regions, split_regions
 from vacfinder.search import Searcher, RANKERS
+from vacfinder.textproc import tokenize
 from vacfinder.travel import TRAVEL_MODES, entries_for_mode, is_misfit, other_mode, does_rating_qualify, rating_line
 
 # Groups for different types of places
@@ -32,6 +33,10 @@ TRAVEL = {
 }
 
 load_dotenv(os.path.join(ROOT, ".env"))
+
+# Local dev origins plus any comma-separated ones in CORS_ORIGINS
+ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+ORIGINS += [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip() != ""]
 
 app = FastAPI(title = "Vacation Finder API")
 app.add_middleware(
@@ -131,6 +136,12 @@ def pick_region(ctx, entry, state, country):
 	return region, ""
 
 
+# Answers without loading any data, for Docker and tunnel health checks
+@app.get("/api/health")
+def health():
+	return {"status": "ok"}
+
+
 @app.get("/api/options")
 def options(ctx: Context = Depends(get_context)):
 	return {
@@ -172,7 +183,7 @@ def search(
 		near = min([e for e in ctx.entries if e["kind"] == "city"], key=lambda e: find_distance_sphere(lat, lon, e["lat"], e["lon"]))
 		entry = {"name": "Your location", "key": "", "kind": "point", "region": near["region"], "country": near["country"], "lat": lat, "lon": lon, "n_places": 0}
 		rest, other = q, near
-	if is_misfit(entry, other, mode):
+	if is_misfit(entry, other, mode, len(other_rest) < len(rest)):
 		note = other["name"] + " is in " + other["region"] + ", which does not fit \"" + mode + "\"."
 		return empty_reply(note, suggest=other_mode(other["country"]).split(" ")[0].lower())
 
@@ -204,6 +215,16 @@ def search(
 	if len(results) == 0:
 		return empty_reply("None of the " + str(len(found)) + " nearby places mention that. Try different words or the Dense ranker.", location)
 
+	# Drop repeats of the same name and address, keeping the best ranked
+	seen = set()
+	unique = []
+	for p, s in results:
+		key = (p["name"], p["address"])
+		if key not in seen:
+			seen.add(key)
+			unique.append((p, s))
+	results = unique
+
 	# Keep the best per_group places of each group, in rank order.
 	if per_group > 0:
 		counts = {}
@@ -214,10 +235,16 @@ def search(
 				kept.append((p, s))
 		results = kept
 
+	# Warn when no place mentions any query word
+	note = ""
+	query_tokens = set(tokenize(rest))
+	if query_tokens and not any(query_tokens & set(ctx.searcher.get_tokens(p)) for d, p in found):
+		note = "No place mentions those words. Showing the closest matches."
+
 	return {
 		"results": [place_json(ctx.searcher, p, distance_map[p["id"]], rest) for p, s in results],
 		"location": location,
 		"total": len(found),
-		"note": "",
+		"note": note,
 		"suggest_travel": None,
 	}

@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 
 from vacfinder.textproc import clean, tokenize
 from vacfinder.bm25 import BM25
@@ -25,26 +26,30 @@ class Searcher:
 		self.tokens = {}
 		self.dense_indexes = {}
 
+		# Endpoints run in a threadpool, so loading and evicting regions must not overlap
+		self.lock = threading.RLock()
+
 	def get_places(self, region):
 		# Loads a region file the first time it is asked for
-		if region not in self.regions:
-			self.regions[region] = load_region(self.final_dir, region)
-			for p in self.regions[region]:
-				self.place_map[p["id"]] = p
-				self.place_region[p["id"]] = region
-		else:
-			# Move to the back of the dict, which keeps it ordered by last use
-			self.regions[region] = self.regions.pop(region)
+		with self.lock:
+			if region not in self.regions:
+				self.regions[region] = load_region(self.final_dir, region)
+				for p in self.regions[region]:
+					self.place_map[p["id"]] = p
+					self.place_region[p["id"]] = region
+			else:
+				# Move to the back of the dict, which keeps it ordered by last use
+				self.regions[region] = self.regions.pop(region)
 
-		# Drop the least recently used regions, with everything built from them
-		while len(self.regions) > self.max_regions:
-			old = next(iter(self.regions))
-			for p in self.regions.pop(old):
-				self.place_map.pop(p["id"], None)
-				self.place_region.pop(p["id"], None)
-				self.tokens.pop(p["id"], None)
-			self.dense_indexes.pop(old, None)
-		return self.regions[region]
+			# Drop the least recently used regions, with everything built from them
+			while len(self.regions) > self.max_regions:
+				old = next(iter(self.regions))
+				for p in self.regions.pop(old):
+					self.place_map.pop(p["id"], None)
+					self.place_region.pop(p["id"], None)
+					self.tokens.pop(p["id"], None)
+				self.dense_indexes.pop(old, None)
+			return self.regions[region]
 
 	def get_tokens(self, place):
 		# Name, categories and reviews all count, tokenized once per place
@@ -55,14 +60,24 @@ class Searcher:
 		return self.tokens[place["id"]]
 
 	def get_dense(self, region):
-		# Built the first time a region is needed, later loads come from cache/
-		if region not in self.dense_indexes:
-			docs = {}
-			for p in self.get_places(region):
-				docs[p["id"]] = {"texts": p["texts"], "ratings": []}
-			cache_path = os.path.join(self.cache_dir, region + "_dense.npz")
-			self.dense_indexes[region] = DenseIndex(docs, cache_path=cache_path, model=self.model)
-		return self.dense_indexes[region]
+		# Built the first time a region is needed
+		with self.lock:
+			if region in self.dense_indexes:
+				return self.dense_indexes[region]
+			places = self.get_places(region)
+
+		# Encoding runs without lock due to it otherwie bieng slow
+		docs = {}
+		for p in places:
+			docs[p["id"]] = {"texts": p["texts"], "ratings": []}
+		cache_path = os.path.join(self.cache_dir, region + "_dense.npz")
+		index = DenseIndex(docs, cache_path=cache_path, model=self.model)
+
+		with self.lock:
+			# Only keep if region isn't evicted
+			if region in self.regions:
+				self.dense_indexes[region] = index
+		return index
 
 	def search(self, query, candidates, ranker="Hybrid", k=20):
 		# candidates: list of place dicts. Returns [(place, score)] best first
@@ -98,11 +113,14 @@ class Searcher:
 	def dense_results(self, query, candidates, k):
 		# Each region has its own index, so score each one and merge the lists
 		by_region = {}
-		for p in candidates:
-			region = self.place_region[p["id"]]
-			if region not in by_region:
-				by_region[region] = []
-			by_region[region].append(p["id"])
+		with self.lock:
+			for p in candidates:
+				region = self.place_region.get(p["id"])
+				if region is None:
+					continue
+				if region not in by_region:
+					by_region[region] = []
+				by_region[region].append(p["id"])
 
 		results = []
 		for region, ids in by_region.items():

@@ -59,24 +59,56 @@ def load_gazetteer(final_dir):
 			entries += list(json.load(f).values())
 	return entries
 
+# Finds the state or country that a city is named with, like Texas in "Italy, Texas"
+def find_qualifier(city, matches):
+	if city["kind"] != "city":
+		return None
+	for m in matches:
+		if m["kind"] in ["state", "country"] and m["region"] == city["region"] and m["key"] != city["key"]:
+			return m
+	return None
+
+# Checks if the word before the place is in, near, around or at
+def follows_preposition(key, text):
+	before = text[:text.index(" " + key + " ")].split()
+	return len(before) > 0 and before[-1] in ["in", "near", "around", "at"]
+
+# A city needs at least this many places to win over a state with the same name
+BIG_CITY_PLACES = 500
+
 def find_loc(query, entries):
 	text = " " + normalize(query) + " "
-	best = None
+	matches = []
 	for e in entries:
 		if e["kind"] == "state" and len(e["key"]) == 2:
 			continue
-		if " " + e["key"] + " " not in text:
-			continue
+		if " " + e["key"] + " " in text:
+			matches.append(e)
 
-		if best is None:
-			best = e
-		elif (e["kind"] == "area", len(e["key"]), e["n_places"]) > (best["kind"] == "area", len(best["key"]), best["n_places"]):
-			best = e
-
-	if best is None:
+	if len(matches) == 0:
 		return None, query
 
+	# A state with a big same-named city will refer to the city unless query explicitly says "state"
+	# Only big cities count (ex: California =/= California, Maryland)
+	city_keys = [m["key"] for m in matches if m["kind"] == "city" and m["n_places"] >= BIG_CITY_PLACES]
+	wants_state = " state " in text
+
+	def rank(e):
+		is_state_twin = e["kind"] == "state" and e["key"] in city_keys and not wants_state
+		return (
+			find_qualifier(e, matches) is not None, e["kind"] == "area", follows_preposition(e["key"], text),
+			not is_state_twin, len(e["key"]), e["n_places"],
+		)
+
+	best = matches[0]
+	for e in matches:
+		if rank(e) > rank(best):
+			best = e
+
 	rest = text.replace(" " + best["key"] + " ", " ", 1)
+	qualifier = find_qualifier(best, matches)
+	if qualifier is not None:
+		rest = rest.replace(" " + qualifier["key"] + " ", " ", 1)
 	return best, " ".join(rest.split())
 
 def find_distance_sphere(lat1, lon1, lat2, lon2):
