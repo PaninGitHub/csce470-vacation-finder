@@ -101,6 +101,13 @@ def test_misfit_same_name_uses_mode():
 	italy = [e for e in ENTRIES if e["region"] == "Italy" and e["name"] == "Florence"][0]
 	assert not is_misfit(italy, alabama, "International")
 
+def test_misfit_when_other_explains_more_of_query():
+	# "Paris, France" in Domestic finds Paris, Texas first, but France explains more of the query
+	paris_tx = {"key": "paris", "country": "US"}
+	paris_fr = {"key": "paris", "country": "FR"}
+	assert not is_misfit(paris_tx, paris_fr, "Domestic (US)")
+	assert is_misfit(paris_tx, paris_fr, "Domestic (US)", True)
+
 def test_card_null_rating():
 	line = rating_line(WIKI, None)
 	assert line == ""

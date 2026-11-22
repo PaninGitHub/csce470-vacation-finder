@@ -6,7 +6,7 @@ services:
     mem_limit: 4g
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:2596:8000"
     env_file:
       - path: .env
         required: false

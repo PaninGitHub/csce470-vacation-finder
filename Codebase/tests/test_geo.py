@@ -65,3 +65,55 @@ def test_punctuation_in_query():
 
 def test_no_entries():
 	assert find_loc("beach", []) == (None, "beach")
+
+PLACES = [
+	{"name": "Temple", "key": "temple", "kind": "city", "region": "Texas", "country": "US", "lat": 31.1, "lon": -97.4, "n_places": 62},
+	{"name": "Kyoto", "key": "kyoto", "kind": "city", "region": "Japan", "country": "JP", "lat": 35.0, "lon": 135.7, "n_places": 300},
+	{"name": "Japan", "key": "japan", "kind": "country", "region": "Japan", "country": "JP", "lat": 36.0, "lon": 138.0, "n_places": 5000},
+	{"name": "New York", "key": "new york", "kind": "city", "region": "New York", "country": "US", "lat": 40.75, "lon": -73.98, "n_places": 1180},
+	{"name": "New York", "key": "new york", "kind": "state", "region": "New York", "country": "US", "lat": 41.7, "lon": -74.0, "n_places": 20000},
+	{"name": "Italy", "key": "italy", "kind": "city", "region": "Texas", "country": "US", "lat": 32.2, "lon": -96.9, "n_places": 8},
+	{"name": "Italy", "key": "italy", "kind": "country", "region": "Italy", "country": "IT", "lat": 41.9, "lon": 12.5, "n_places": 4000},
+	{"name": "Texas", "key": "texas", "kind": "state", "region": "Texas", "country": "US", "lat": 30.7, "lon": -97.1, "n_places": 22000},
+	{"name": "California", "key": "california", "kind": "city", "region": "Maryland", "country": "US", "lat": 38.3, "lon": -76.5, "n_places": 22},
+	{"name": "California", "key": "california", "kind": "state", "region": "California", "country": "US", "lat": 36.7, "lon": -119.4, "n_places": 31000},
+]
+
+def test_place_after_in_beats_town_word():
+	# "temple" is a town in Texas, but the query is about Kyoto
+	entry, rest = find_loc("temple in Kyoto", PLACES)
+	assert entry["name"] == "Kyoto"
+	assert rest == "temple in"
+
+def test_place_after_in_beats_town_word_with_country():
+	entry, rest = find_loc("temple Kyoto Japan", PLACES)
+	assert entry["name"] == "Kyoto"
+
+def test_town_word_alone_still_matches():
+	entry, rest = find_loc("temple in Temple", PLACES)
+	assert entry["name"] == "Temple"
+
+def test_city_beats_state_of_same_name():
+	entry, rest = find_loc("pizza in New York", PLACES)
+	assert entry["kind"] == "city"
+	assert rest == "pizza in"
+
+def test_state_word_picks_state():
+	entry, rest = find_loc("pizza in New York state", PLACES)
+	assert entry["kind"] == "state"
+
+def test_city_with_state_picks_city():
+	entry, rest = find_loc("pasta in Italy, Texas", PLACES)
+	assert entry["kind"] == "city"
+	assert entry["region"] == "Texas"
+	assert rest == "pasta in"
+
+def test_italy_alone_is_country():
+	entry, rest = find_loc("pasta in Italy", PLACES)
+	assert entry["kind"] == "country"
+
+def test_small_town_does_not_beat_state():
+	# California, Maryland is a tiny town, so "California" still means the state
+	entry, rest = find_loc("hotels in California", PLACES)
+	assert entry["kind"] == "state"
+	assert entry["region"] == "California"

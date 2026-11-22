@@ -1,3 +1,5 @@
+import threading
+
 from vacfinder.geo import find_loc, radius_search
 from vacfinder.search import Searcher
 
@@ -118,3 +120,21 @@ def test_no_places_in_radius():
 	found = radius_search(PLACES, 50.0, 50.0, 10)
 	assert found == []
 	assert make_searcher().search("beach", [p for d, p in found], ranker="BM25") == []
+
+def test_get_places_threads_with_eviction(monkeypatch):
+	# 3 regions through a 2-region cache from several threads, nothing should raise
+	monkeypatch.setattr("vacfinder.search.load_region", lambda d, r: [make_place(r + str(i), "P", ["x"]) for i in range(5)])
+	searcher = Searcher("unused", "unused", None)
+	searcher.max_regions = 2
+	errors = []
+	def work():
+		try:
+			for i in range(300):
+				region = "r" + str(i % 3)
+				assert all(p["id"].startswith(region) for p in searcher.get_places(region))
+		except Exception as e:
+			errors.append(e)
+	threads = [threading.Thread(target=work) for _ in range(4)]
+	for t in threads: t.start()
+	for t in threads: t.join()
+	assert errors == []

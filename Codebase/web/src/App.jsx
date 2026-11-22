@@ -59,6 +59,22 @@ function App() {
           onSwitchTravel={switchTravel}
           onNearMe={runSearch}
         />
+        <footer className="text-center text-xs text-gray-500">
+          Place descriptions from{' '}
+          <a className="underline" href="https://en.wikivoyage.org" target="_blank" rel="noreferrer">
+            Wikivoyage
+          </a>
+          , licensed{' '}
+          <a
+            className="underline"
+            href="https://creativecommons.org/licenses/by-sa/4.0/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            CC BY-SA 4.0
+          </a>
+          .
+        </footer>
       </div>
     </div>
   )
