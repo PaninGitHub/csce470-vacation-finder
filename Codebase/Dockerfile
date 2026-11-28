@@ -17,6 +17,9 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 COPY src ./src
 COPY healthcheck.py .
 
+# Files copied from a host with strict permissions would be unreadable to the non-root user
+RUN chmod -R a+rX /app
+
 RUN useradd --system --uid 10001 --no-create-home app
 USER app
 
